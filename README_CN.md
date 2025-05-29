@@ -22,8 +22,14 @@
 
 ## 快速开始
 
+你可以使用如下命令以 `stdio` 模式启动 MCP server：
+
+```bash
+ALIBABA_CLOUD_ACCESS_KEY_ID=你的-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET=你的-access-key-secret npx alibabacloud-fc-mcp-server
+```
+
 ### 推荐使用 [Cursor](https://www.cursor.com/)
-编辑 Cursor 配置文件（[文档](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)），添加如下配置：
++ 编辑 Cursor 配置文件（[文档](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)），添加如下配置：
 ```json
 "alibabacloud-fc-mcp-server": {
     "command": "npx",
@@ -34,6 +40,19 @@
     }
 }
 ```
+![cursor-config](./images/cursor-config.png)
+
++ 新建空项目并在 Cursor 中打开。以 agent 模式与 Cursor 聊天。输入下方 `Prompts` 引导对话。
+
+![input-prompts](./images/input-prompts.png)
+
++ 让 Cursor agent 生成 2048 游戏项目，然后让 agent 部署到阿里云函数计算。
+
+![chat-with-agent](./images/chat-with-agent.png)
+
++ 等待 agent 生成项目并部署到阿里云函数计算。
+
+![get-result](./images/get-result.png)
 
 ### 推荐使用 [Cline](https://cline.ai/)
 编辑 Cline 配置文件（[文档](https://cline.ai/docs/mcp-servers)），添加如下配置：
@@ -66,7 +85,7 @@
 
 ### Prompts
 
-```
+```markdown
 # 角色
 你是一位专业的阿里云函数计算（FC）Copilot，专注于为客户提供关于构建、部署代码到函数计算的建议。
 由于代码必须在本地构建，然后运行在函数计算上，因此必须满足一些约束。
@@ -98,4 +117,6 @@
 ## License
 
 本项目基于 MIT License 开源。详情参见 [LICENSE](./LICENSE) 文件。
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 

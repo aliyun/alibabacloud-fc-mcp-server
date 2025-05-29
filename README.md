@@ -1,7 +1,7 @@
 <p align="center">English | <a href="./README_CN.md">中文</a><br></p>
 
 # Alibaba Cloud FC MCP Server
-MCP server for Alibaba Cloud Function Compute Services via [Serveress Devs](https://serverless-devs.com/docs/overview) and [OpenAPI](https://www.alibabacloud.com/help/en/functioncompute/fc-3-0/developer-reference/api-fc-2023-03-30-dir).
+MCP server for Alibaba Cloud Function Compute Services via [Serveress Devs](https://serverless-devs.com/docs/overview) and [OpenAPI](https://www.alibabacloud.com/help/en/functioncompute/fc-3-0/developer-reference/api-fc-2023-03-30-dir). Now MCP Server is running in `stdio` mode.
 
 
 ## Prerequisites
@@ -15,9 +15,17 @@ MCP server for Alibaba Cloud Function Compute Services via [Serveress Devs](http
    - `AliyunEventBridgeFullAccess` (optional)
 
 ## Quick Start
-### Using [Cursor](https://www.cursor.com/) [Recommended]
-Edit cursor configuration file [doc](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers), and add the following configuration:
+
+You can use the following command to start the MCP server in `stdio` mode.
+
+```bash
+ALIBABA_CLOUD_ACCESS_KEY_ID=your-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET=your-access-key-secret npx alibabacloud-fc-mcp-server
 ```
+
+
+### Using [Cursor](https://www.cursor.com/) [Recommended]
++ Edit cursor configuration file [doc](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers), and add the following configuration:
+```json
 "alibabacloud-fc-mcp-server": {
     "command": "npx",
     "args": ["-y", "alibabacloud-fc-mcp-server"],
@@ -27,10 +35,26 @@ Edit cursor configuration file [doc](https://docs.cursor.com/context/model-conte
     }
 }
 ```
+![cursor-config](./images/cursor-config.png)
+
++ Start an empty project and open the project in cursor. Chat with cursor in agent mode. Input `Prompts` below to guide the conversation.
+
+![input-prompts](./images/input-prompts.png)
+
++ Ask cursor agent to generate a 2048 game project, and then ask cursor agent to deploy the project to Alibaba Cloud Function Compute.
+
+![chat-with-agent](./images/chat-with-agent.png)
+
++ Wait for cursor agent to generate the project and deploy it to Alibaba Cloud Function Compute.
+
+![get-result](./images/get-result.png)
+
+
+
 
 ### Using [Cline](https://cline.ai/) [Recommended]
 Edit cline configuration file [doc](https://cline.ai/docs/mcp-servers), and add the following configuration:
-```
+```json
 "alibabacloud-fc-mcp-server": {
     "command": "npx",
     "args": ["-y", "alibabacloud-fc-mcp-server"],
@@ -45,7 +69,7 @@ Edit cline configuration file [doc](https://cline.ai/docs/mcp-servers), and add 
 
 ### Tools
 
-* `put-custom-runtime-function`: Zip a project that matches Alibaba Cloud custom runtime requirements, creates a function, and deploys the code to that function. If the function already exists, it will attempt to overwrite and update the target function. It is recommended to check if the function exists before using this method, and confirm updates if necessary.
+* `put-custom-runtime-function`: Deploy a project that matches Alibaba Cloud custom runtime requirements, creates a function, and deploys the code to that function. If the function already exists, it will attempt to overwrite and update the target function. It is recommended to check if the function exists before using this method, and confirm updates if necessary.
 * `update-custom-runtime-function`: Update a custom runtime function. Only the provided parameters will be updated; others remain unchanged.
 * `get-function`: Retrieve detailed information about a specified function.
 * `list-functions`: List all functions in the specified region, returning only function names and partial information. For full details, use `get-function`.

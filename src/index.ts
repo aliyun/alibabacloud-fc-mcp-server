@@ -203,12 +203,14 @@ function updateYamlByInputs(yamlPath: string, args: any) {
         yamlObject.resources[functionName].props.tag = tag;
     }
     fs.writeFileSync(yamlPath, yaml.dump(yamlObject));
+    return yamlObject.resources[functionName].props;
 }
 
 // Helper: Deploy function
-async function deployFunction(functionName: string, workspacePath: string, yamlPath: string, sconfig: any) {
+async function deployFunction(functionName: string, workspacePath: string, yamlPath: string, sconfig: any, fc3Props: any) {
     const component = await loadComponent.default("fc3", { logger });
     const result = await component.deploy({
+        props: fc3Props,
         name: "my-app",
         args: ['--silent', '-t', yamlPath, '-y'],
         yaml: { path: yamlPath },
@@ -304,10 +306,10 @@ server.tool(
             sconfig.SecurityToken = stsToken;
         }
         try {
-            const result = await deployFunction(functionName, location, yamlPath, sconfig);
+            const result = await deployFunction(functionName, location, yamlPath, sconfig, fc3Props);
             return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
-        } catch (error) {
-            return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error as any)}` }] };
+        } catch (error: any) {
+            return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error)}` }] };
         }
 
     }
@@ -370,10 +372,10 @@ server.tool(
         const tmpYamlDir = prepareTmpDir();
         const syncResult = await syncYaml(tmpYamlDir, functionName, region, sconfig);
         // update Yaml
-        updateYamlByInputs(syncResult.yamlPath, args);
+        const fc3Props = updateYamlByInputs(syncResult.yamlPath, args);
         // Deploy
         try {
-            const result = await deployFunction(functionName, tmpYamlDir, syncResult.yamlPath, sconfig);
+            const result = await deployFunction(functionName, tmpYamlDir, syncResult.yamlPath, sconfig, fc3Props);
             return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
         } catch (error) {
             return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error as any)}` }] };
