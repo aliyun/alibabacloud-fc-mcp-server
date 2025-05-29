@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 // region schema
-export const regionSchema = z.enum(['cn-hangzhou', 'cn-shanghai', 'cn-beijing', 'cn-shenzhen'])
+export const regionSchema = z.enum(['cn-hangzhou', 'cn-shanghai', 'cn-beijing', 'cn-shenzhen', 'cn-hongkong', 'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3', 'ap-southeast-5', 'ap-northeast-1', 'eu-central-1', 'eu-west-1', 'us-west-1', 'us-east-1', 'ap-south-1', 'me-east-1', 'cn-chengdu', 'cn-wulanchabu', 'cn-guangzhou'])
     .default('cn-hangzhou')
-    .describe("部署的区域，当前可选的区域是cn-hangzhou, cn-shanghai, cn-beijing, cn-shenzhen，默认是cn-hangzhou");
+    .describe("部署的区域，当前可选的区域是cn-hangzhou, cn-shanghai, cn-beijing, cn-shenzhen, cn-hongkong, ap-southeast-1, ap-southeast-2, ap-southeast-3, ap-southeast-5, ap-northeast-1, eu-central-1, eu-west-1, us-west-1, us-east-1, ap-south-1, me-east-1, cn-chengdu, cn-wulanchabu, cn-guangzhou，默认是cn-hangzhou");
 
 // equal rule schema
 export const equalRuleSchema = z.object({

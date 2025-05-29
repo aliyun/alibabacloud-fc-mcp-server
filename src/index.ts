@@ -48,7 +48,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.1",
+    version: "1.0.2",
 });
 
 // Helper: Prepare layers
@@ -650,6 +650,6 @@ async function main() {
 }
 
 main().catch((error) => {
-    console.error("Fatal error in main():", error);
+    process.stderr.write(JSON.stringify(error));
     process.exit(1);
 });
