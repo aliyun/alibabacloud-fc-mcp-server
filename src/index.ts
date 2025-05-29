@@ -48,7 +48,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.0",
+    version: "1.0.1",
 });
 
 // Helper: Prepare layers
