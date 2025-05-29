@@ -44,7 +44,7 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=你的-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET
 
 + 新建空项目并在 Cursor 中打开。以 agent 模式与 Cursor 聊天。输入下方 `Prompts` 引导对话。
 
-![input-prompts](./images/input-prompts.png)
+![input-prompt](./images/input-prompt.png)
 
 + 让 Cursor agent 生成 2048 游戏项目，然后让 agent 部署到阿里云函数计算。
 

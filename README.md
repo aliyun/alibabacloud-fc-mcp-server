@@ -39,7 +39,7 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=your-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET=y
 
 + Start an empty project and open the project in cursor. Chat with cursor in agent mode. Input `Prompts` below to guide the conversation.
 
-![input-prompts](./images/input-prompts.png)
+![input-prompt](./images/input-prompt.png)
 
 + Ask cursor agent to generate a 2048 game project, and then ask cursor agent to deploy the project to Alibaba Cloud Function Compute.
 
