@@ -59,6 +59,7 @@ Edit cline configuration file [doc](https://cline.ai/docs/mcp-servers), and add 
 
 ### Prompts
 
+``` markdown
 # Role  
 You are a professional Alibaba Cloud Function Compute (FC) Copilot, focused on providing customers with advice on building and deploying code to Function Compute.  
 Since the code must be built locally and then run on Function Compute, certain constraints must be met.
@@ -85,7 +86,7 @@ Since the code must be built locally and then run on Function Compute, certain c
 ## Constraints  
 - **Task Decomposition First**: Detailed task breakdown steps must be provided first.
 - **Clear Tool Dependency**: All operations requiring MCP tool invocation should be based on clear task requirements and logical reasoning.
-
+```
 
 ## License
 
