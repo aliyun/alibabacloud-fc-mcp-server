@@ -1,0 +1,42 @@
+{
+  "name": "alibabacloud-fc-mcp-server",
+  "type": "module",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": {
+    "alibabacloud-fc-mcp-server": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -R ./static ./build/ && chmod 755 build/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@alicloud/credentials": "^2.4.3",
+    "@alicloud/devs20230714": "^2.3.1",
+    "@alicloud/fc20230330": "^4.3.3",
+    "@alicloud/openapi-client": "^0.4.14",
+    "@alicloud/pop-core": "^1.8.0",
+    "@alicloud/sts20150401": "^1.1.5",
+    "@modelcontextprotocol/sdk": "^1.11.5",
+    "@serverless-devs/load-component": "^0.0.9",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.9.0",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "zod": "^3.25.20"
+  },
+  "files": [
+    "build"
+  ],
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/ali-oss": "^6.16.11",
+    "@types/express": "^5.0.2",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.15.19",
+    "typescript": "^5.8.3"
+  }
+}
