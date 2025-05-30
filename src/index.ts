@@ -48,7 +48,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.2",
+    version: "1.0.3",
 });
 
 // Helper: Prepare layers
@@ -78,6 +78,10 @@ function prepareEnvVars(env: Record<string, string> | undefined): Record<string,
 function buildFc3Props(params: any, accountId: string, layers: string[], environmentVariables: Record<string, string>) {
     const { functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = params;
 
+    if (customRuntimeConfig && customRuntimeConfig.args && customRuntimeConfig.args.length === 0) {
+        // unset empty args to avoid fc 400 error
+        delete customRuntimeConfig.args;
+    }
 
     return {
         functionName,

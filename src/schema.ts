@@ -124,8 +124,8 @@ export const locationSchema = z.string().describe("本地代码工程的根路�
 
 // custom runtime config schema
 export const customRuntimeConfigSchema = z.object({
-    command: z.array(z.string()).describe("自定义运行时启动命令，命令执行的用户是root，执行的目录是/code,例如python3"),
-    args: z.array(z.string()).describe("自定义运行时启动命令参数，例如app.py").optional(),
+    command: z.array(z.string()).min(1).describe("自定义运行时启动命令，命令执行的用户是root，执行的目录是/code,例如python3"),
+    args: z.array(z.string()).min(1).describe("自定义运行时启动命令参数，例如app.py").optional(),
     port: z.number().describe("自定义运行时中启动的HTTP Server的监听端口，默认为9000").default(9000),
 }).describe("自定义运行时配置，定义启动命令、参数以及启动的HTTP Server的监听端口");
 
