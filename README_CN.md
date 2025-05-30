@@ -22,13 +22,15 @@
 
 ## 快速开始
 
+### 方案一：从npm包启动 [推荐MCP Server用户使用]
+
 你可以使用如下命令以 `stdio` 模式启动 MCP server：
 
 ```bash
-ALIBABA_CLOUD_ACCESS_KEY_ID=你的-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET=你的-access-key-secret npx alibabacloud-fc-mcp-server
+ALIBABA_CLOUD_ACCESS_KEY_ID=${your-access-key-id} ALIBABA_CLOUD_ACCESS_KEY_SECRET=${your-access-key-secret} npx alibabacloud-fc-mcp-server
 ```
 
-### 推荐使用 [Cursor](https://www.cursor.com/)
+#### 推荐使用 [Cursor](https://www.cursor.com/)
 + 编辑 Cursor 配置文件（[文档](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)），添加如下配置：
 ```json
 "alibabacloud-fc-mcp-server": {
@@ -54,7 +56,7 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=你的-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET
 
 ![get-result](./images/get-result.png)
 
-### 推荐使用 [Cline](https://cline.ai/)
+#### 推荐使用 [Cline](https://cline.ai/)
 编辑 Cline 配置文件（[文档](https://cline.ai/docs/mcp-servers)），添加如下配置：
 ```json
 "alibabacloud-fc-mcp-server": {
@@ -66,6 +68,25 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=你的-access-key-id ALIBABA_CLOUD_ACCESS_KEY_SECRET
     }
 }
 ```
+
+
+### 方案二：从源码启动 [推荐MCP Server开发者使用]
+
++ 首先克隆项目，并完成构建
+```bash
+git clone https://github.com/alibaba/alibabacloud-fc-mcp-server.git
+cd alibabacloud-fc-mcp-server
+npm install
+npm run build
+```
+
++ 然后使用 `stdio` 模式启动 MCP server
+
+```bash
+ALIBABA_CLOUD_ACCESS_KEY_ID=${your-access-key-id} ALIBABA_CLOUD_ACCESS_KEY_SECRET=${your-access-key-secret} node {absolute-path-to-project}/build/index.js
+```
+
++ 最后，在 Cursor 或 Cline 中配置 MCP server 即可，配置方法参考方案一。
 
 ## 组件
 
