@@ -76,7 +76,7 @@ function prepareEnvVars(env: Record<string, string> | undefined): Record<string,
 
 // Helper: Prepare fc3Props
 function buildFc3Props(params: any, accountId: string, layers: string[], environmentVariables: Record<string, string>) {
-    const { functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = params;
+    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = params;
 
     if (customRuntimeConfig && customRuntimeConfig.args && customRuntimeConfig.args.length === 0) {
         // unset empty args to avoid fc 400 error
@@ -101,7 +101,7 @@ function buildFc3Props(params: any, accountId: string, layers: string[], environ
         timeout,
         layers,
         tag,
-        code: "./",
+        code: location,
         customDomain: {
             domainName: "auto",
             protocol: "HTTP",
@@ -211,14 +211,13 @@ function updateYamlByInputs(yamlPath: string, args: any) {
 }
 
 // Helper: Deploy function
-async function deployFunction(functionName: string, workspacePath: string, yamlPath: string, sconfig: any, fc3Props: any) {
+async function deployFunction(functionName: string, yamlPath: string, sconfig: any, fc3Props: any) {
     const component = await loadComponent.default("fc3", { logger });
     const result = await component.deploy({
         props: fc3Props,
         name: "my-app",
         args: ['--silent', '-t', yamlPath, '-y'],
         yaml: { path: yamlPath },
-        cwd: workspacePath,
         resource: {
             name: functionName,
             component: "fc3",
@@ -310,7 +309,7 @@ server.tool(
             sconfig.SecurityToken = stsToken;
         }
         try {
-            const result = await deployFunction(functionName, location, yamlPath, sconfig, fc3Props);
+            const result = await deployFunction(functionName, yamlPath, sconfig, fc3Props);
             return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
         } catch (error: any) {
             return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error)}` }] };
@@ -379,7 +378,7 @@ server.tool(
         const fc3Props = updateYamlByInputs(syncResult.yamlPath, args);
         // Deploy
         try {
-            const result = await deployFunction(functionName, tmpYamlDir, syncResult.yamlPath, sconfig, fc3Props);
+            const result = await deployFunction(functionName, syncResult.yamlPath, sconfig, fc3Props);
             return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
         } catch (error) {
             return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error as any)}` }] };
