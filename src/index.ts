@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createFcClient, getAccountId } from "./utils/alibaba_cloud_sdk.js";
 import * as path from 'path';
@@ -14,6 +15,7 @@ import loadComponent from "@serverless-devs/load-component";
 import {
     regionSchema,
     domainSchema,
+    codeUriSchema,
     logConfigSchema,
     vpcConfigSchema,
     updateCustomDomainConfigSchema,
@@ -24,6 +26,7 @@ import {
     locationSchema,
     customRuntimeConfigSchema,
     functionDescriptionSchema,
+    functionVersionDescriptionSchema,
     diskSizeSchema,
     instanceConcurrencySchema,
     environmentVariablesSchema,
@@ -35,13 +38,20 @@ import {
     functionTagSchema,
     listFunctionsPrefixSchema,
     listFunctionsNextTokenSchema,
+    listFunctionVersionsNextTokenSchema,
+    listFunctionVersionsDirectionSchema,
+    listFunctionVersionsLimitSchema,
+    versionIdSchema
 } from "./schema.js";
 import {
     GetFunctionRequest,
     ListFunctionsRequest,
     CreateCustomDomainRequest,
     UpdateCustomDomainRequest,
+    PublishFunctionVersionRequest,
+    ListFunctionVersionsRequest,
 } from "@alicloud/fc20230330";
+import axios from "axios";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -50,6 +60,8 @@ const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
     version: "1.0.4",
 });
+
+const remoteMode = process.env.REMOTE_MODE === 'true';
 
 // Helper: Prepare layers
 function prepareLayers(layers: string[], regionID: string): string[] {
@@ -145,7 +157,7 @@ async function syncYaml(tmpYamlDir: string, functionName: string, region: string
     const yamlFileName = `${region}_${functionName}.yaml`.replace('$', '_')
     const codePath = `${region}_${functionName}`.replace('$', '_')
     return {
-        yamlPath: path.join(tmpYamlDir, yamlFileName), 
+        yamlPath: path.join(tmpYamlDir, yamlFileName),
         codePath: path.join(tmpYamlDir, codePath)
     };
 }
@@ -155,7 +167,7 @@ function updateYamlByInputs(yamlPath: string, args: any) {
     const yamlContent = fs.readFileSync(yamlPath, 'utf-8');
     const yamlObject: any = yaml.load(yamlContent);
 
-    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, environmentVariables, layers,internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = args;
+    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, environmentVariables, layers, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = args;
     if (location) {
         yamlObject.resources[functionName].props.code = location;
     }
@@ -248,143 +260,257 @@ function getAutoCustomDomainName(uid: string, functionName: string, regionID: st
     return `${normalizedFunctionName}.fcv3.${uid}.${regionID}.fc.devsapp.net`;
 }
 
+// Helper: Download file
+async function downloadFile(url: string, dest: string): Promise<void> {
+    const response = await axios.get(url, { responseType: 'stream' });
+    const writer = fs.createWriteStream(dest);
+    response.data.pipe(writer);
+    return new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+    });
+}
+
+async function createCustomRuntimeFunction(params: any): Promise<CallToolResult> {
+    const { location, functionName, region, layers, environmentVariables } = params;
+    if (!functionName) {
+        return { isError: true, content: [{ type: "text", text: `执行失败，请设置functionName参数` }] };
+    }
+    const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
+    const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
+    const stsToken = process.env.ALIBABA_CLOUD_SECURITY_TOKEN || '';
+    if (!accessKeyId || !accessKeySecret) {
+        return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
+    }
+    const accountId = await getAccountId();
+    if (!accountId) {
+        return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
+    }
+    // Prepare layers and env
+    const finalLayers = prepareLayers(layers, region);
+    const finalEnv = prepareEnvVars(environmentVariables);
+    // Build props
+    const fc3Props = buildFc3Props(params, accountId, finalLayers, finalEnv);
+    // Write yaml
+    const tmpYamlDir = prepareTmpDir();
+    const yamlPath = writeSYaml(tmpYamlDir, fc3Props);
+    // Deploy
+    const sconfig: any = {
+        AccountID: accountId,
+        AccessKeyID: accessKeyId,
+        AccessKeySecret: accessKeySecret,
+        SecurityToken: stsToken,
+    };
+    if (stsToken && stsToken.length > 0) {
+        sconfig.SecurityToken = stsToken;
+    }
+    try {
+        const result = await deployFunction(functionName, yamlPath, sconfig, fc3Props);
+        return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
+    } catch (error: any) {
+        return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error)}` }] };
+    }
+}
+
+async function updateCustomRuntimeFunction(params: any): Promise<CallToolResult> {
+    const { functionName, region } = params;
+    const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
+    const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
+    const stsToken = process.env.ALIBABA_CLOUD_SECURITY_TOKEN || '';
+    if (!accessKeyId || !accessKeySecret) {
+        return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
+    }
+    const fcClient = createFcClient(region);
+    const accountId = await getAccountId();
+    if (!accountId) {
+        return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
+    }
+    try {
+        await fcClient.getFunction(functionName, new GetFunctionRequest({}));
+    } catch (error: any) {
+        if (error.statusCode !== 404) {
+            return { isError: true, content: [{ type: "text", text: `获取函数信息失败：${JSON.stringify(error as any)}` }] };
+        }
+        return { isError: true, content: [{ type: "text", text: `函数不存在` }] };
+    }
+    const sconfig: any = {
+        AccountID: accountId,
+        AccessKeyID: accessKeyId,
+        AccessKeySecret: accessKeySecret,
+        SecurityToken: stsToken,
+    };
+    // 同步yaml文件
+    const tmpYamlDir = prepareTmpDir();
+    const syncResult = await syncYaml(tmpYamlDir, functionName, region, sconfig);
+    // update Yaml
+    const fc3Props = updateYamlByInputs(syncResult.yamlPath, params);
+    // Deploy
+    try {
+        const result = await deployFunction(functionName, syncResult.yamlPath, sconfig, fc3Props);
+        return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
+    } catch (error) {
+        return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error as any)}` }] };
+    }
+}
+
 // 创建或更新函数
-server.tool(
-    "put-custom-runtime-function",
-    "将构建完成的匹配阿里云自定义运行时的工程，制作为代码包，创建函数并部署代码到该函数。如果函数已存在，则尝试覆盖并更新目标函数。建议使用该方法前先确认函数是否存在，如果存在需要确认更新目标函数",
-    {
-        location: locationSchema,
-        functionName: functionNameSchema,
-        region: regionSchema,
-        cpu: cpuSchema.default(1),
-        memorySize: memorySizeSchema.default(2048),
-        customRuntimeConfig: customRuntimeConfigSchema,
-        description: functionDescriptionSchema.optional(),
-        diskSize: diskSizeSchema,
-        instanceConcurrency: instanceConcurrencySchema,
-        environmentVariables: environmentVariablesSchema.default({}),
-        internetAccess: internetAccessSchema.default(true),
-        logConfig: logConfigSchema.optional(),
-        vpcConfig: vpcConfigSchema.optional(),
-        role: functionRoleSchema.optional(),
-        runtime: customRuntimeSchema.default("custom.debian10"),
-        timeout: functionTimeoutSchema.default(3),
-        layers: customRuntimeLayersSchema.default([]),
-        tag: functionTagSchema.default([]),
-    },
-    async (args) => {
-        const { location, functionName, region, environmentVariables, layers } = args;
-        if (!fs.existsSync(location)) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，需要指定本地代码工程根路径` }] };
-        }
-        if (!functionName) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，请设置functionName参数` }] };
-        }
-        const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
-        const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
-        const stsToken = process.env.ALIBABA_CLOUD_SECURITY_TOKEN || '';
-        if (!accessKeyId || !accessKeySecret) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
-        }
-        const accountId = await getAccountId();
-        if (!accountId) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
-        }
-        // Prepare layers and env
-        const finalLayers = prepareLayers(layers, region);
-        const finalEnv = prepareEnvVars(environmentVariables);
-        // Build props
-        const fc3Props = buildFc3Props(args, accountId, finalLayers, finalEnv);
-        // Write yaml
-        const tmpYamlDir = prepareTmpDir();
-        const yamlPath = writeSYaml(tmpYamlDir, fc3Props);
-        // Deploy
-        const sconfig: any = {
-            AccountID: accountId,
-            AccessKeyID: accessKeyId,
-            AccessKeySecret: accessKeySecret,
-            SecurityToken: stsToken,
-        };
-        if (stsToken && stsToken.length > 0) {
-            sconfig.SecurityToken = stsToken;
-        }
-        try {
-            const result = await deployFunction(functionName, yamlPath, sconfig, fc3Props);
-            return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
-        } catch (error: any) {
-            return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error)}` }] };
-        }
-
-    }
-);
-
-server.tool(
-    "update-custom-runtime-function",
-    "更新custom runtime函数。只需要提供需要更新的参数，未提供的参数将保持不变",
-    {
-        location: locationSchema.describe("本地代码工程的根路径，更新代码时，需要提供本地代码工程的根路径，否则可不提供").optional(),
-        functionName: functionNameSchema.describe("要更新的目标函数名称"),
-        region: regionSchema,
-        cpu: cpuSchema.optional(),
-        memorySize: memorySizeSchema.optional(),
-        customRuntimeConfig: customRuntimeConfigSchema.optional(),
-        description: functionDescriptionSchema.optional(),
-        diskSize: diskSizeSchema.optional(),
-        instanceConcurrency: instanceConcurrencySchema.optional(),
-        environmentVariables: environmentVariablesSchema.optional(),
-        internetAccess: internetAccessSchema.optional(),
-        logConfig: logConfigSchema.optional(),
-        vpcConfig: vpcConfigSchema.optional(),
-        role: functionRoleSchema.optional(),
-        runtime: customRuntimeSchema.optional(),
-        timeout: functionTimeoutSchema.optional(),
-        layers: customRuntimeLayersSchema.optional(),
-        tag: functionTagSchema.optional(),
-    },
-    async (args) => {
-        const { location, functionName, region } = args;
-        if (location && !fs.existsSync(location)) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，指定的本地代码工程路径不存在` }] };
-        }
-        const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
-        const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
-        const stsToken = process.env.ALIBABA_CLOUD_SECURITY_TOKEN || '';
-        if (!accessKeyId || !accessKeySecret) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
-        }
-        const fcClient = createFcClient(region);
-        const accountId = await getAccountId();
-        if (!accountId) {
-            return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
-        }
-        try {
-            await fcClient.getFunction(functionName, new GetFunctionRequest({}));
-        } catch (error:any) {
-            if (error.statusCode !== 404) {
-                return { isError: true, content: [{ type: "text", text: `获取函数信息失败：${JSON.stringify(error as any)}` }] };
+if (remoteMode) {
+    server.tool(
+        "put-custom-runtime-function",
+        "提供构建完成的匹配阿里云自定义运行时的zip格式的代码包的可下载链接以及其他函数部署配置，创建函数并部署代码到该函数。如果函数已存在，则尝试覆盖并更新目标函数。建议使用该方法前先确认函数是否存在，如果存在需要确认更新目标函数",
+        {
+            codeUri: codeUriSchema,
+            functionName: functionNameSchema,
+            region: regionSchema,
+            cpu: cpuSchema.default(1),
+            memorySize: memorySizeSchema.default(2048),
+            customRuntimeConfig: customRuntimeConfigSchema,
+            description: functionDescriptionSchema.optional(),
+            diskSize: diskSizeSchema,
+            instanceConcurrency: instanceConcurrencySchema,
+            environmentVariables: environmentVariablesSchema.default({}),
+            internetAccess: internetAccessSchema.default(true),
+            logConfig: logConfigSchema.optional(),
+            vpcConfig: vpcConfigSchema.optional(),
+            role: functionRoleSchema.optional(),
+            runtime: customRuntimeSchema.default("custom.debian10"),
+            timeout: functionTimeoutSchema.default(3),
+            layers: customRuntimeLayersSchema.default([]),
+            tag: functionTagSchema.default([]),
+        },
+        async (args) => {
+            const { codeUri } = args;
+            if (!codeUri) {
+                return { isError: true, content: [{ type: "text", text: `执行失败，需要指定codeUri参数` }] };
             }
-            return { isError: true, content: [{ type: "text", text: `函数不存在` }] };
+            const location = path.join(os.tmpdir(), `code-${Date.now()}.zip`);
+            // download codeUri to location
+            await downloadFile(codeUri, location);
+
+            if (!fs.existsSync(location)) {
+                return { isError: true, content: [{ type: "text", text: `执行失败，需要指定本地代码工程根路径` }] };
+            }
+            const nextArgs = {
+                ...args,
+                location,
+            }
+            return await createCustomRuntimeFunction(nextArgs);
         }
-        const sconfig: any = {
-            AccountID: accountId,
-            AccessKeyID: accessKeyId,
-            AccessKeySecret: accessKeySecret,
-            SecurityToken: stsToken,
-        };
-        // 同步yaml文件
-        const tmpYamlDir = prepareTmpDir();
-        const syncResult = await syncYaml(tmpYamlDir, functionName, region, sconfig);
-        // update Yaml
-        const fc3Props = updateYamlByInputs(syncResult.yamlPath, args);
-        // Deploy
-        try {
-            const result = await deployFunction(functionName, syncResult.yamlPath, sconfig, fc3Props);
-            return { content: [{ type: "text", text: `部署完成。output: ${result}` }] };
-        } catch (error) {
-            return { isError: true, content: [{ type: "text", text: `部署失败：${JSON.stringify(error as any)}` }] };
+    );
+} else {
+    server.tool(
+        "put-custom-runtime-function",
+        "将构建完成的匹配阿里云自定义运行时的工程，部署到函数计算。代码工程不需要手动打包，会自动处理。如果函数已存在，则尝试覆盖并更新目标函数。建议使用该方法前先确认函数是否存在",
+        {
+            location: locationSchema,
+            functionName: functionNameSchema,
+            region: regionSchema,
+            cpu: cpuSchema.default(1),
+            memorySize: memorySizeSchema.default(2048),
+            customRuntimeConfig: customRuntimeConfigSchema,
+            description: functionDescriptionSchema.optional(),
+            diskSize: diskSizeSchema,
+            instanceConcurrency: instanceConcurrencySchema,
+            environmentVariables: environmentVariablesSchema.default({}),
+            internetAccess: internetAccessSchema.default(true),
+            logConfig: logConfigSchema.optional(),
+            vpcConfig: vpcConfigSchema.optional(),
+            role: functionRoleSchema.optional(),
+            runtime: customRuntimeSchema.default("custom.debian10"),
+            timeout: functionTimeoutSchema.default(3),
+            layers: customRuntimeLayersSchema.default([]),
+            tag: functionTagSchema.default([]),
+        },
+        async (args) => {
+            const { location } = args;
+            if (!fs.existsSync(location)) {
+                return { isError: true, content: [{ type: "text", text: `执行失败，需要指定本地代码工程根路径` }] };
+            }
+            return await createCustomRuntimeFunction(args);
         }
-    }
-)
+    );
+}
+
+// 更新函数
+if (remoteMode) {
+    server.tool(
+        "update-custom-runtime-function",
+        "更新custom runtime函数。只需要提供需要更新的参数，未提供的参数将保持不变",
+        {
+            codeUri: codeUriSchema.optional(),
+            functionName: functionNameSchema.describe("要更新的目标函数名称"),
+            region: regionSchema,
+            cpu: cpuSchema.optional(),
+            memorySize: memorySizeSchema.optional(),
+            customRuntimeConfig: customRuntimeConfigSchema.optional(),
+            description: functionDescriptionSchema.optional(),
+            diskSize: diskSizeSchema.optional(),
+            instanceConcurrency: instanceConcurrencySchema.optional(),
+            environmentVariables: environmentVariablesSchema.optional(),
+            internetAccess: internetAccessSchema.optional(),
+            logConfig: logConfigSchema.optional(),
+            vpcConfig: vpcConfigSchema.optional(),
+            role: functionRoleSchema.optional(),
+            runtime: customRuntimeSchema.optional(),
+            timeout: functionTimeoutSchema.optional(),
+            layers: customRuntimeLayersSchema.optional(),
+            tag: functionTagSchema.optional(),
+        },
+        async (args) => {
+            const { codeUri } = args;
+            let location;
+            if (codeUri) {
+                location = path.join(os.tmpdir(), `code-${Date.now()}.zip`);
+                // download codeUri to location
+                try {
+                    await downloadFile(codeUri, location);
+                } catch (error) {
+                    return { isError: true, content: [{ type: "text", text: `执行失败，下载代码工程失败: ${JSON.stringify(error as any)}` }] };
+                }
+                if (!fs.existsSync(location)) {
+                    return { isError: true, content: [{ type: "text", text: `执行失败，下载代码工程失败` }] };
+                }
+            }
+            const nextArgs = {
+                ...args,
+                location,
+            }
+            return await updateCustomRuntimeFunction(nextArgs);
+        }
+    )
+} else {
+    server.tool(
+        "update-custom-runtime-function",
+        "更新并部署custom runtime函数。如果需要修改代码，必须先完成构建。如果需要更新函数配置，需要提供更新的参数，未提供的参数将保持不变",
+        {
+            location: locationSchema.describe("本地代码工程的根路径，需要部署更新代码时，需要提供本地代码工程的根路径，否则可不提供").optional(),
+            functionName: functionNameSchema.describe("要更新的目标函数名称"),
+            region: regionSchema,
+            cpu: cpuSchema.optional(),
+            memorySize: memorySizeSchema.optional(),
+            customRuntimeConfig: customRuntimeConfigSchema.optional(),
+            description: functionDescriptionSchema.optional(),
+            diskSize: diskSizeSchema.optional(),
+            instanceConcurrency: instanceConcurrencySchema.optional(),
+            environmentVariables: environmentVariablesSchema.optional(),
+            internetAccess: internetAccessSchema.optional(),
+            logConfig: logConfigSchema.optional(),
+            vpcConfig: vpcConfigSchema.optional(),
+            role: functionRoleSchema.optional(),
+            runtime: customRuntimeSchema.optional(),
+            timeout: functionTimeoutSchema.optional(),
+            layers: customRuntimeLayersSchema.optional(),
+            tag: functionTagSchema.optional(),
+        },
+        async (args) => {
+            const { location } = args;
+            if (location && !fs.existsSync(location)) {
+                return { isError: true, content: [{ type: "text", text: `执行失败，指定的本地代码工程路径不存在` }] };
+            }
+            return await updateCustomRuntimeFunction(args);
+        }
+    )
+}
 
 // 查询函数
 server.tool(
@@ -637,17 +763,129 @@ server.tool(
     }
 )
 
-// FIXME refactor: prompt instead of tool
+// 发布函数版本
 server.tool(
-    "get-custom-runtime-prompt",
-    "获取函数计算的函数自定义运行时提示词",
+    "publish-function-version",
+    "将函数的最新代码发布为新版本",
+    {
+        functionName: functionNameSchema,
+        region: regionSchema,
+        description: functionVersionDescriptionSchema,
+    },
     async (args) => {
-        const promptPath = resolve(__dirname, './static/custom_runtime_prompt.md');
-        const promptText = fs.readFileSync(promptPath, 'utf-8').toString();
-        return { content: [{ type: "text", text: promptText }] };
+        const { functionName, region, description } = args;
+        const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
+        const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
+        if (!accessKeyId || !accessKeySecret) {
+            return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
+        }
+        const accountId = await getAccountId();
+        if (!accountId) {
+            return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
+        }
+        const fcClient = createFcClient(region);
+        try {
+            const request = new PublishFunctionVersionRequest({
+                description,
+            })
+            const result = await fcClient.publishFunctionVersion(functionName, request);
+            return { content: [{ type: "text", text: `发布函数版本成功。result: ${JSON.stringify(result)}` }] };
+        } catch (error) {
+            return { isError: true, content: [{ type: "text", text: `发布函数版本失败：${JSON.stringify(error as any)}` }] };
+        }
     }
 )
 
+// 获取函数版本
+server.tool(
+    "list-function-versions",
+    "获取函数计算的函数版本列表",
+    {
+        functionName: functionNameSchema,
+        region: regionSchema,
+        nextToken: listFunctionVersionsNextTokenSchema.optional(),
+        direction: listFunctionVersionsDirectionSchema,
+        limit: listFunctionVersionsLimitSchema.optional(),
+    },
+    async (args) => {
+        const { functionName, region, nextToken, direction, limit } = args;
+        const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
+        const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
+        if (!accessKeyId || !accessKeySecret) {
+            return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
+        }
+        const accountId = await getAccountId();
+        if (!accountId) {
+            return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
+        }
+        const fcClient = createFcClient(region);
+        const listFunctionVersionsRequest = new ListFunctionVersionsRequest({
+            functionName,
+            direction,
+        })
+        if (nextToken) {
+            listFunctionVersionsRequest.nextToken = nextToken;
+        }
+        if (limit) {
+            listFunctionVersionsRequest.limit = limit;
+        }
+        try {
+            const listFunctionVersionsResult = await fcClient.listFunctionVersions(functionName, listFunctionVersionsRequest);
+            return { content: [{ type: "text", text: `获取函数版本列表成功。result: ${JSON.stringify(listFunctionVersionsResult)}` }] };
+        } catch (error) {
+            return { isError: true, content: [{ type: "text", text: `获取函数版本列表失败：${JSON.stringify(error as any)}` }] };
+        }
+
+    }
+)
+
+// 删除函数版本
+server.tool(
+    "delete-function-version",
+    "删除函数计算的函数版本",
+    {
+        functionName: functionNameSchema,
+        region: regionSchema,
+        versionId: versionIdSchema,
+    },
+    async (args) => {
+        const { functionName, region, versionId } = args;
+        const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
+        const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
+        if (!accessKeyId || !accessKeySecret) {
+            return { isError: true, content: [{ type: "text", text: `执行失败，请设置ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET, ALIBABA_CLOUD_SECURITY_TOKEN环境变量` }] };
+        }
+        const accountId = await getAccountId();
+        if (!accountId) {
+            return { isError: true, content: [{ type: "text", text: `执行失败，获取accountId异常` }] };
+        }
+        const fcClient = createFcClient(region);
+        try {
+            const result = await fcClient.deleteFunctionVersion(functionName, versionId);
+            return { content: [{ type: "text", text: `删除函数版本成功。result: ${JSON.stringify(result)}` }] };
+        } catch (error) {
+            return { isError: true, content: [{ type: "text", text: `删除函数版本失败：${JSON.stringify(error as any)}` }] };
+        }
+    }
+)
+
+// 部署函数自定义运行时runtime的提示词
+server.prompt(
+    "deploy-custom-runtime-function",
+    () => {
+        const promptPath = resolve(__dirname, './static/custom_runtime_prompt.md');
+        const promptText = fs.readFileSync(promptPath, 'utf-8').toString();
+        return {
+            messages: [{
+                role: "user",
+                content: {
+                    type: "text",
+                    text: promptText
+                }
+            }]
+        }
+    }
+)
 
 async function main() {
     const transport = new StdioServerTransport();

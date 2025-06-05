@@ -30,7 +30,8 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=${your-access-key-id} ALIBABA_CLOUD_ACCESS_KEY_SECRE
 ```
 
 #### Using [Cursor](https://www.cursor.com/) [Recommended]
-+ Edit the Cursor configuration file ([doc](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)), and add the following configuration:
++ Click [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=alibabacloud-fc-mcp-server&config=eyJjb21tYW5kIjoibnB4IC15IGFsaWJhYmFjbG91ZC1mYy1tY3Atc2VydmVyIiwiZW52Ijp7IkFMSUJBQkFfQ0xPVURfQUNDRVNTX0tFWV9JRCI6IiR7eW91ci1hY2Nlc3Mta2V5LWlkfSIsIkFMSUJBQkFfQ0xPVURfQUNDRVNTX0tFWV9TRUNSRVQiOiIke3lvdXItYWNjZXNzLWtleS1zZWNyZXR9In19)
+ or edit the Cursor configuration file ([doc](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)), and add the following configuration:
 ```json
 "alibabacloud-fc-mcp-server": {
     "command": "npx",
