@@ -58,7 +58,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.5",
+    version: "1.0.6",
 });
 
 const remoteMode = process.env.REMOTE_MODE === 'true';
@@ -88,7 +88,7 @@ function prepareEnvVars(env: Record<string, string> | undefined): Record<string,
 
 // Helper: Prepare fc3Props
 function buildFc3Props(params: any, accountId: string, layers: string[], environmentVariables: Record<string, string>) {
-    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = params;
+    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, internetAccess, logConfig, vpcConfig, role, runtime, timeout,  tags } = params;
 
     if (customRuntimeConfig && customRuntimeConfig.args && customRuntimeConfig.args.length === 0) {
         // unset empty args to avoid fc 400 error
@@ -112,7 +112,7 @@ function buildFc3Props(params: any, accountId: string, layers: string[], environ
         runtime,
         timeout,
         layers,
-        tag,
+        tags,
         code: location,
         customDomain: {
             domainName: "auto",
@@ -167,7 +167,7 @@ function updateYamlByInputs(yamlPath: string, args: any) {
     const yamlContent = fs.readFileSync(yamlPath, 'utf-8');
     const yamlObject: any = yaml.load(yamlContent);
 
-    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, environmentVariables, layers, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tag } = args;
+    const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, environmentVariables, layers, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tags } = args;
     if (location) {
         yamlObject.resources[functionName].props.code = location;
     }
@@ -215,8 +215,8 @@ function updateYamlByInputs(yamlPath: string, args: any) {
     if (timeout) {
         yamlObject.resources[functionName].props.timeout = timeout;
     }
-    if (tag) {
-        yamlObject.resources[functionName].props.tag = tag;
+    if (tags) {
+        yamlObject.resources[functionName].props.tags = tags;
     }
     fs.writeFileSync(yamlPath, yaml.dump(yamlObject));
     return yamlObject.resources[functionName].props;
@@ -376,7 +376,7 @@ if (remoteMode) {
             runtime: customRuntimeSchema.default("custom.debian10"),
             timeout: functionTimeoutSchema.default(3),
             layers: customRuntimeLayersSchema.default([]),
-            tag: functionTagSchema.default([]),
+            tags: functionTagSchema.default([]),
         },
         async (args) => {
             const { codeUri } = args;
@@ -419,7 +419,7 @@ if (remoteMode) {
             runtime: customRuntimeSchema.default("custom.debian10"),
             timeout: functionTimeoutSchema.default(3),
             layers: customRuntimeLayersSchema.default([]),
-            tag: functionTagSchema.default([]),
+            tags: functionTagSchema.default([]),
         },
         async (args) => {
             const { location } = args;
@@ -454,7 +454,7 @@ if (remoteMode) {
             runtime: customRuntimeSchema.optional(),
             timeout: functionTimeoutSchema.optional(),
             layers: customRuntimeLayersSchema.optional(),
-            tag: functionTagSchema.optional(),
+            tags: functionTagSchema.optional(),
         },
         async (args) => {
             const { codeUri } = args;
@@ -500,7 +500,7 @@ if (remoteMode) {
             runtime: customRuntimeSchema.optional(),
             timeout: functionTimeoutSchema.optional(),
             layers: customRuntimeLayersSchema.optional(),
-            tag: functionTagSchema.optional(),
+            tags: functionTagSchema.optional(),
         },
         async (args) => {
             const { location } = args;
