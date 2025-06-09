@@ -58,7 +58,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.4",
+    version: "1.0.5",
 });
 
 const remoteMode = process.env.REMOTE_MODE === 'true';
