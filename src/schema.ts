@@ -120,7 +120,9 @@ export const functionNameSchema = z.string().describe("函数名称，函数名�
     .regex(/^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,63}$/);
 
 // location schema
-export const locationSchema = z.string().describe("本地代码工程的根路径");
+export const locationSchema = z.string().describe("本地代码工程的根路径，例如/Users/xxx/my-project，不需要打包为zip");
+
+export const codeUriSchema = z.string().describe("zip格式代码包下载链接，代码工程必须是已经完成构建后打包的代码工程，且地址必须是免鉴权的地址，例如: https://mybucket.oss-cn-hangzhou.aliyuncs.com/objectName?Expires=1749109495&OSSAccessKeyId=osstmpak&Signature=osstmpsign%3D");
 
 // custom runtime config schema
 export const customRuntimeConfigSchema = z.object({
@@ -131,6 +133,8 @@ export const customRuntimeConfigSchema = z.object({
 
 // function description schema
 export const functionDescriptionSchema = z.string().describe("函数的描述，可以描述一下函数的功能。");
+
+export const functionVersionDescriptionSchema = z.string().describe("函数版本的描述，可以描述一下发布的函数版本的功能。");
 
 // disk size schema
 export const diskSizeSchema = z.number().describe("磁盘大小，单位是MB，可选值: 512 | 10240");
@@ -168,3 +172,11 @@ export const functionTagSchema = z.array(z.object({
 export const listFunctionsPrefixSchema = z.string().describe("函数名称前缀，用于过滤函数列表");
 
 export const listFunctionsNextTokenSchema = z.string().describe("函数列表的下一页token，用于分页查询函数列表。第一页不需要提供");
+
+export const listFunctionVersionsNextTokenSchema = z.string().describe("函数版本列表的下一页token，用于分页查询函数版本列表。第一页不需要提供");
+
+export const listFunctionVersionsLimitSchema = z.number().describe("函数版本列表的返回数量上限，默认50，最大100").min(1).max(100).default(50);
+
+export const listFunctionVersionsDirectionSchema = z.enum(["BACKWARD", "FORWARD"]).describe("函数版本列表的排序方向，BACKWARD表示按版本号降序，FORWARD表示按版本号升序").default("BACKWARD");
+
+export const versionIdSchema = z.string().describe("函数版本ID");

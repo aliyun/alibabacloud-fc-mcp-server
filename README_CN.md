@@ -31,7 +31,7 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=${your-access-key-id} ALIBABA_CLOUD_ACCESS_KEY_SECRE
 ```
 
 #### 推荐使用 [Cursor](https://www.cursor.com/)
-+ 编辑 Cursor 配置文件（[文档](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)），添加如下配置：
++ 点击[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=alibabacloud-fc-mcp-server&config=eyJjb21tYW5kIjoibnB4IC15IGFsaWJhYmFjbG91ZC1mYy1tY3Atc2VydmVyIiwiZW52Ijp7IkFMSUJBQkFfQ0xPVURfQUNDRVNTX0tFWV9JRCI6IiR7eW91ci1hY2Nlc3Mta2V5LWlkfSIsIkFMSUJBQkFfQ0xPVURfQUNDRVNTX0tFWV9TRUNSRVQiOiIke3lvdXItYWNjZXNzLWtleS1zZWNyZXR9In19)或者编辑 Cursor 配置文件（[文档](https://docs.cursor.com/context/model-context-protocol#configuring-mcp-servers)），添加如下配置：
 ```json
 "alibabacloud-fc-mcp-server": {
     "command": "npx",
