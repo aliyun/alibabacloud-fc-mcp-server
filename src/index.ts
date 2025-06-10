@@ -58,7 +58,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.6",
+    version: "1.0.7",
 });
 
 const remoteMode = process.env.REMOTE_MODE === 'true';
@@ -153,7 +153,6 @@ async function syncYaml(tmpYamlDir: string, functionName: string, region: string
         cwd: tmpYamlDir,
     });
     console.error('sync result: ', JSON.stringify(result));
-
     const yamlFileName = `${region}_${functionName}.yaml`.replace('$', '_')
     const codePath = `${region}_${functionName}`.replace('$', '_')
     return {
@@ -163,13 +162,15 @@ async function syncYaml(tmpYamlDir: string, functionName: string, region: string
 }
 
 
-function updateYamlByInputs(yamlPath: string, args: any) {
+function updateYamlByInputs(yamlPath: string, originCodePath: string, args: any) {
     const yamlContent = fs.readFileSync(yamlPath, 'utf-8');
     const yamlObject: any = yaml.load(yamlContent);
 
     const { location, functionName, region, cpu, memorySize, customRuntimeConfig, description, diskSize, instanceConcurrency, environmentVariables, layers, internetAccess, logConfig, vpcConfig, role, runtime, timeout, tags } = args;
     if (location) {
         yamlObject.resources[functionName].props.code = location;
+    } else {
+        yamlObject.resources[functionName].props.code = originCodePath;
     }
     if (cpu) {
         yamlObject.resources[functionName].props.cpu = cpu;
@@ -343,7 +344,7 @@ async function updateCustomRuntimeFunction(params: any): Promise<CallToolResult>
     const tmpYamlDir = prepareTmpDir();
     const syncResult = await syncYaml(tmpYamlDir, functionName, region, sconfig);
     // update Yaml
-    const fc3Props = updateYamlByInputs(syncResult.yamlPath, params);
+    const fc3Props = updateYamlByInputs(syncResult.yamlPath, syncResult.codePath, params);
     // Deploy
     try {
         const result = await deployFunction(functionName, syncResult.yamlPath, sconfig, fc3Props);
