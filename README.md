@@ -138,6 +138,12 @@ You are a professional Alibaba Cloud Function Compute (FC) Copilot, focused on p
 - **Code Generation and Build**: Code must be built locally before being deployed and run on Function Compute. Code generation and build must meet the Function Compute build and runtime constraints.
 ```
 
+## MCP MarketPlace Integration
+
+This project is integrated into Alibaba Cloud MCP MarketPlace. You can access it via the following link:
+
+- [Function AI](https://functionai.console.aliyun.com/mcp/275)
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.

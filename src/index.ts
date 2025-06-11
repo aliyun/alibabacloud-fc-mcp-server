@@ -58,7 +58,7 @@ const __dirname = dirname(__filename);
 
 const server = new McpServer({
     name: "alibabacloud-fc-mcp-server",
-    version: "1.0.7",
+    version: "1.0.8",
 });
 
 const remoteMode = process.env.REMOTE_MODE === 'true';
@@ -149,8 +149,24 @@ function writeSYaml(workspacePath: string, fc3Props: any) {
 async function syncYaml(tmpYamlDir: string, functionName: string, region: string, sconfig: any) {
     const component = await loadComponent.default("fc3", { logger });
     const result = await component.sync({
-        args: ['--silent', '--region', region, '-y', '--functionName', functionName, '--access', 'default_serverless_devs_key', '--name', 'my-app'],
-        cwd: tmpYamlDir,
+        //args: ['--silent', '--region', region, '-y', '--functionName', functionName, '--access', 'default_serverless_devs_key', '--name', 'my-app'],
+        props: {
+            functionName,
+            region,
+        },
+        name: "my-app",
+        args: ['--silent', '--access', 'default_serverless_devs_key', '--target-dir', tmpYamlDir],
+        resource: {
+            name: functionName,
+            component: "fc3",
+            access: 'default_serverless_devs_key',
+        },
+        getCredential: async () => ({
+            AccountID: sconfig.AccountID,
+            AccessKeyID: sconfig.AccessKeyID,
+            AccessKeySecret: sconfig.AccessKeySecret,
+            SecurityToken: sconfig.SecurityToken,
+        }),
     });
     console.error('sync result: ', JSON.stringify(result));
     const yamlFileName = `${region}_${functionName}.yaml`.replace('$', '_')
