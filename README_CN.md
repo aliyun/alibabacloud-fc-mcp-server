@@ -141,6 +141,12 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=${your-access-key-id} ALIBABA_CLOUD_ACCESS_KEY_SECRE
 - **代码生成与构建**：代码必须在本地完成构建，然后部署运行在函数计算上。代码的生成与构建必须满足函数计算构建与运行时约束。
 ```
 
+## MCP MarketPlace集成
+
+本项目已集成于阿里云MCP MarketPlace，您可以通过以下链接访问：
+
+- [Function AI](https://functionai.console.aliyun.com/mcp/275)
+
 ## License
 
 本项目基于 MIT License 开源。详情参见 [LICENSE](./LICENSE) 文件。
